@@ -25,12 +25,8 @@ var requirements = builders.NewDependencies(agent.Name,
 type Settings struct {
 	Debug bool `yaml:"debug"` // Developer only
 
-	Watch bool `yaml:"watch"`
-
 	WithDebugSymbols              bool `yaml:"with-debug-symbols"`
 	WithRaceConditionDetectionRun bool `yaml:"with-race-condition-detection-run"`
-
-	Includes []string `yaml:"includes"`
 }
 
 type Service struct {

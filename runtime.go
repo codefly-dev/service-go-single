@@ -23,8 +23,7 @@ type Runtime struct {
 	Environment          *basev0.Environment
 	EnvironmentVariables *configurations.EnvironmentVariableManager
 
-	NetworkMappings []*basev0.NetworkMapping
-	Port            int
+	RunArgs []string
 }
 
 func NewRuntime() *Runtime {
@@ -39,14 +38,26 @@ func (s *Runtime) Load(ctx context.Context, req *runtimev0.LoadRequest) (*runtim
 
 	s.Configuration = &configurations.Service{}
 
-	s.Settings.Watch = true
-
-	err := s.Base.HeadlessLoad(ctx, req.Identity, s.Settings)
+	err := s.Base.HeadlessLoad(ctx, req.Identity)
 	if err != nil {
 		return s.Base.Runtime.LoadError(err)
 	}
 
-	s.Wool.Focus("location", wool.Field("location", s.Location))
+	s.Wool.Focus("specs", wool.Field("specs", req.AdditionalSpecs))
+	// runtime args
+	if v, ok := req.AdditionalSpecs.Fields["run-args"]; ok {
+		// Extract []string
+		args, err := configurations.FromAnyPb[[]string](v.Value)
+		if err != nil {
+			return s.Base.Runtime.LoadError(err)
+		}
+		s.RunArgs = *args
+		s.Wool.Focus("loading service", wool.Field("args", *args))
+	}
+
+	s.Wool.Focus("loading service", wool.Field("settings", s.Settings))
+
+	s.Wool.Debug("location", wool.Field("location", s.Location))
 
 	requirements.Localize(s.Location)
 
@@ -54,13 +65,12 @@ func (s *Runtime) Load(ctx context.Context, req *runtimev0.LoadRequest) (*runtim
 
 	s.EnvironmentVariables = s.LoadEnvironmentVariables(req.Environment)
 
-	if s.Settings.Watch {
-		s.Wool.Debug("setting up code watcher", wool.Field("configurations", requirements))
-		conf := services.NewWatchConfiguration(requirements)
-		err = s.SetupWatcher(ctx, conf, s.EventHandler)
-		if err != nil {
-			s.Wool.Warn("error in watcher", wool.ErrField(err))
-		}
+	s.Wool.Debug("setting up code watcher", wool.Field("configurations", requirements))
+
+	conf := services.NewWatchConfiguration(requirements)
+	err = s.SetupWatcher(ctx, conf, s.EventHandler)
+	if err != nil {
+		s.Wool.Warn("error in watcher", wool.ErrField(err))
 	}
 
 	s.EnvironmentVariables = configurations.NewEnvironmentVariableManager()
@@ -71,8 +81,6 @@ func (s *Runtime) Load(ctx context.Context, req *runtimev0.LoadRequest) (*runtim
 func (s *Runtime) Init(ctx context.Context, req *runtimev0.InitRequest) (*runtimev0.InitResponse, error) {
 	defer s.Wool.Catch()
 	ctx = s.Wool.Inject(ctx)
-
-	s.NetworkMappings = req.ProposedNetworkMappings
 
 	runner, err := golanghelpers.NewRunner(ctx, s.Location)
 	if err != nil {
@@ -106,17 +114,17 @@ func (s *Runtime) Init(ctx context.Context, req *runtimev0.InitRequest) (*runtim
 
 	s.Wool.Info("successful init of runner")
 
-	return s.Runtime.InitResponse(s.NetworkMappings)
+	return s.Runtime.InitResponse(nil)
 }
 
 func (s *Runtime) Start(ctx context.Context, req *runtimev0.StartRequest) (*runtimev0.StartResponse, error) {
 	defer s.Wool.Catch()
 	ctx = s.Wool.Inject(ctx)
+	s.Wool.Debug("starting runner")
 
 	runningContext := s.Wool.Inject(context.Background())
 
-	s.Wool.Debug("starting runner")
-	err := s.runner.Start(runningContext)
+	err := s.runner.Start(runningContext, s.RunArgs...)
 	if err != nil {
 		return s.Runtime.StartError(err, wool.Field("in", "runner"))
 	}
