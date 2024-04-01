@@ -36,14 +36,14 @@ func (s *Runtime) Load(ctx context.Context, req *runtimev0.LoadRequest) (*runtim
 	defer s.Wool.Catch()
 	ctx = s.Wool.Inject(ctx)
 
-	s.Configuration = &configurations.Service{}
+	s.Base.Service = &configurations.Service{}
 
 	err := s.Base.HeadlessLoad(ctx, req.Identity)
 	if err != nil {
 		return s.Base.Runtime.LoadError(err)
 	}
 
-	s.Wool.Focus("specs", wool.Field("specs", req.AdditionalSpecs))
+	s.Wool.Debug("specs", wool.Field("specs", req.AdditionalSpecs))
 	// runtime args
 	if v, ok := req.AdditionalSpecs.Fields["run-args"]; ok {
 		// Extract []string
@@ -52,18 +52,16 @@ func (s *Runtime) Load(ctx context.Context, req *runtimev0.LoadRequest) (*runtim
 			return s.Base.Runtime.LoadError(err)
 		}
 		s.RunArgs = *args
-		s.Wool.Focus("loading service", wool.Field("args", *args))
+		s.Wool.Debug("loading service", wool.Field("args", *args))
 	}
 
-	s.Wool.Focus("loading service", wool.Field("settings", s.Settings))
+	s.Wool.Debug("loading service", wool.Field("settings", s.Settings))
 
 	s.Wool.Debug("location", wool.Field("location", s.Location))
 
 	requirements.Localize(s.Location)
 
 	s.Environment = req.Environment
-
-	s.EnvironmentVariables = s.LoadEnvironmentVariables(req.Environment)
 
 	s.Wool.Debug("setting up code watcher", wool.Field("configurations", requirements))
 
@@ -72,8 +70,6 @@ func (s *Runtime) Load(ctx context.Context, req *runtimev0.LoadRequest) (*runtim
 	if err != nil {
 		s.Wool.Warn("error in watcher", wool.ErrField(err))
 	}
-
-	s.EnvironmentVariables = configurations.NewEnvironmentVariableManager()
 
 	return s.Base.Runtime.LoadResponse()
 }
