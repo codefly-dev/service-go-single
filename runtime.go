@@ -26,6 +26,11 @@ type Runtime struct {
 	RunArgs []string
 }
 
+func (s *Runtime) Test(ctx context.Context, req *runtimev0.TestRequest) (*runtimev0.TestResponse, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
 func NewRuntime() *Runtime {
 	return &Runtime{
 		Service: NewService(),
