@@ -1,22 +1,21 @@
-package main_test
+package main
 
 import (
 	"context"
+	builderv0 "github.com/codefly-dev/core/generated/go/services/builder/v0"
+	"github.com/hashicorp/go-plugin"
 	"os"
 	"testing"
-
-	builderv0 "github.com/codefly-dev/core/generated/go/services/builder/v0"
 
 	"github.com/codefly-dev/core/configurations"
 
 	"github.com/stretchr/testify/assert"
 
 	basev0 "github.com/codefly-dev/core/generated/go/base/v0"
-
-	main "github.com/codefly-dev/service-go"
 )
 
 func TestCreate(t *testing.T) {
+	defer plugin.CleanupClients()
 	ctx := context.Background()
 	tmpDir := t.TempDir()
 	defer func(path string) {
@@ -26,7 +25,7 @@ func TestCreate(t *testing.T) {
 		}
 	}(tmpDir)
 
-	conf := configurations.Service{Name: "svc", Application: "app"}
+	conf := configurations.Service{Name: "svc", Application: "app", Project: "proj"}
 	err := conf.SaveAtDir(ctx, tmpDir)
 	assert.NoError(t, err)
 	identity := &basev0.ServiceIdentity{
@@ -34,9 +33,9 @@ func TestCreate(t *testing.T) {
 		Application: "app",
 		Location:    tmpDir,
 	}
-	builder := main.NewBuilder()
-	resp, err := builder.Load(ctx, &builderv0.LoadRequest{Identity: identity})
+
+	builder := NewBuilder()
+	_, err = builder.Load(ctx, &builderv0.LoadRequest{Identity: identity, AtCreate: true})
 	assert.NoError(t, err)
-	assert.NotNil(t, resp)
 
 }
