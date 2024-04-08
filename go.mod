@@ -2,11 +2,7 @@ module github.com/codefly-dev/service-go
 
 go 1.22.0
 
-require (
-	github.com/codefly-dev/core v0.1.78
-	github.com/hashicorp/go-plugin v1.6.0
-	github.com/stretchr/testify v1.9.0
-)
+require github.com/codefly-dev/core v0.1.78
 
 require (
 	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.33.0-20240401165935-b983156c5e99.1 // indirect
@@ -49,6 +45,7 @@ require (
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-hclog v1.6.3 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
+	github.com/hashicorp/go-plugin v1.6.0 // indirect
 	github.com/hashicorp/yamux v0.1.1 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/lufia/plan9stats v0.0.0-20240408141607-282e7b5d6b74 // indirect
