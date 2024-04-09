@@ -2,7 +2,7 @@ module github.com/codefly-dev/service-go
 
 go 1.22.0
 
-require github.com/codefly-dev/core v0.1.78
+require github.com/codefly-dev/core v0.1.80
 
 require (
 	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.33.0-20240401165935-b983156c5e99.1 // indirect
