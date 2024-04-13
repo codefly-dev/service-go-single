@@ -6,6 +6,7 @@ import (
 	"github.com/codefly-dev/core/configurations"
 	basev0 "github.com/codefly-dev/core/generated/go/base/v0"
 	"github.com/codefly-dev/core/wool"
+	"io"
 
 	agentv0 "github.com/codefly-dev/core/generated/go/services/agent/v0"
 
@@ -24,6 +25,8 @@ type Runtime struct {
 	EnvironmentVariables *configurations.EnvironmentVariableManager
 
 	RunArgs []string
+
+	out io.Writer
 }
 
 func (s *Runtime) Test(ctx context.Context, req *runtimev0.TestRequest) (*runtimev0.TestResponse, error) {
@@ -38,8 +41,6 @@ func NewRuntime() *Runtime {
 }
 
 func (s *Runtime) Load(ctx context.Context, req *runtimev0.LoadRequest) (*runtimev0.LoadResponse, error) {
-	defer s.Wool.Catch()
-	ctx = s.Wool.Inject(ctx)
 
 	s.Base.Service = &configurations.Service{}
 
@@ -48,16 +49,22 @@ func (s *Runtime) Load(ctx context.Context, req *runtimev0.LoadRequest) (*runtim
 		return s.Base.Runtime.LoadError(err)
 	}
 
+	defer s.Wool.Catch()
+	ctx = s.Wool.Inject(ctx)
+
 	s.Wool.Debug("specs", wool.Field("specs", req.AdditionalSpecs))
+
 	// runtime args
-	if v, ok := req.AdditionalSpecs.Fields["run-args"]; ok {
-		// Extract []string
-		args, err := configurations.FromAnyPb[[]string](v.Value)
-		if err != nil {
-			return s.Base.Runtime.LoadError(err)
+	if req.AdditionalSpecs != nil && req.AdditionalSpecs.Fields != nil {
+		if v, ok := req.AdditionalSpecs.Fields["run-args"]; ok {
+			// Extract []string
+			args, err := configurations.FromAnyPb[[]string](v.Value)
+			if err != nil {
+				return s.Base.Runtime.LoadError(err)
+			}
+			s.RunArgs = *args
+			s.Wool.Debug("loading service", wool.Field("args", *args))
 		}
-		s.RunArgs = *args
-		s.Wool.Debug("loading service", wool.Field("args", *args))
 	}
 
 	s.Wool.Debug("loading service", wool.Field("settings", s.Settings))
@@ -76,6 +83,8 @@ func (s *Runtime) Load(ctx context.Context, req *runtimev0.LoadRequest) (*runtim
 		s.Wool.Warn("error in watcher", wool.ErrField(err))
 	}
 
+	s.out = s.Wool
+
 	return s.Base.Runtime.LoadResponse()
 }
 
@@ -87,6 +96,8 @@ func (s *Runtime) Init(ctx context.Context, req *runtimev0.InitRequest) (*runtim
 	if err != nil {
 		return s.Runtime.InitError(err)
 	}
+
+	runner.WithArgs(s.RunArgs)
 
 	// Stop before replacing the runner
 	if s.runner != nil {
@@ -101,8 +112,7 @@ func (s *Runtime) Init(ctx context.Context, req *runtimev0.InitRequest) (*runtim
 	s.runner.WithRaceConditionDetection(s.Settings.WithRaceConditionDetectionRun)
 	s.runner.WithRequirements(requirements)
 
-	// Output to wool
-	s.runner.WithOut(s.Wool)
+	s.runner.WithOut(s.out)
 
 	s.Wool.Debug("runner init started")
 	err = s.runner.Init(ctx)
@@ -123,9 +133,12 @@ func (s *Runtime) Start(ctx context.Context, req *runtimev0.StartRequest) (*runt
 	ctx = s.Wool.Inject(ctx)
 	s.Wool.Debug("starting runner")
 
+	// Pick the most recent s.out
+	s.runner.WithOut(s.out)
+
 	runningContext := s.Wool.Inject(context.Background())
 
-	err := s.runner.Start(runningContext, s.RunArgs...)
+	err := s.runner.Start(runningContext)
 	if err != nil {
 		return s.Runtime.StartError(err, wool.Field("in", "runner"))
 	}
@@ -166,4 +179,8 @@ func (s *Runtime) EventHandler(event code.Change) error {
 	s.Wool.Debug("detected change requiring re-build", wool.Field("path", event.Path))
 	s.Runtime.DesiredInit()
 	return nil
+}
+
+func (s *Runtime) WithOutput(w io.Writer) {
+	s.out = w
 }
