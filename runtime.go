@@ -11,8 +11,8 @@ import (
 	agentv0 "github.com/codefly-dev/core/generated/go/services/agent/v0"
 
 	"github.com/codefly-dev/core/agents/helpers/code"
-	golanghelpers "github.com/codefly-dev/core/agents/helpers/go"
 	runtimev0 "github.com/codefly-dev/core/generated/go/services/runtime/v0"
+	golanghelpers "github.com/codefly-dev/core/runners/golang"
 )
 
 type Runtime struct {
